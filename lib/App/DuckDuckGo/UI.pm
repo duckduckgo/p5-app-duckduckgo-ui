@@ -5,13 +5,11 @@ use Moo;
 our $VERSION = 'devel';
 
 use Curses;
-use DDP;
 use Curses::UI::POE;
 use Curses::UI::TextEditor;
 use WWW::DuckDuckGo;
 use URI::Encode qw/uri_decode uri_encode/;
 use JSON;
-use LWP::Simple;
 use POE 'Component::Client::HTTP';
 use HTTP::Request;
 
