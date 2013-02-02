@@ -1,0 +1,26 @@
+# Command to execute for the web browser -- %s is replaced with the URL.
+browser: w3m %s
+
+# Extra URL params to pass to the API (see: https://duckduckgo.com/params)
+params:
+    # SafeSearch
+    kp: -1
+    # Region (wt-wt is None)
+    kl: wt-wt
+
+# UI configuration
+interface:
+    searchbox:
+        # These are the builtin defaults, for examples.
+        -border: true
+        -bfg: red
+        -fg: default # default terminal setting
+        -bg: default
+        
+        keys:
+            $: cursor-end
+            ^: cursor-home
+
+    window:
+        -border: true
+    

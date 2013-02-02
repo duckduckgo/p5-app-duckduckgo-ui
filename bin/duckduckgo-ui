@@ -1,0 +1,10 @@
+#!/usr/bin/env perl
+
+# Handle logging by redirecting STDERR to a file
+unlink 'err.log';
+open STDERR, ">>err.log";
+print STDERR "[".__PACKAGE__."] Opening log file at ".localtime."\n";
+
+use App::DuckDuckGo::UI;
+
+App::DuckDuckGo::UI->new->run;
