@@ -1,4 +1,5 @@
 package App::DuckDuckGo::UI::Config;
+# ABSTRACT: App::DuckDuckGo::UI configuration manager
 
 use Config::Any;
 

@@ -1,4 +1,5 @@
 package App::DuckDuckGo::UI;
+# ABSTRACT: DuckDuckGo UI using Curses::UI
 
 use Moo;
 
@@ -122,6 +123,12 @@ has ddg => (
             http_agent_name => "App::DuckDuckGo::UI/$VERSION",
         )
     }
+);
+
+# Search history
+has history => (
+    is => 'rw',
+    default => sub {[]},
 );
 
 sub scale {
