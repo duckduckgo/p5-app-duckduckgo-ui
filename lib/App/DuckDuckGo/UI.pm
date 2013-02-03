@@ -12,6 +12,7 @@ use URI::Encode qw/uri_decode uri_encode/;
 use JSON;
 use POE 'Component::Client::HTTP';
 use HTTP::Request;
+use DDP;
 
 use App::DuckDuckGo::UI::Config;
 
@@ -30,7 +31,7 @@ has ui => (
             -color_support => 1,
             inline_states => {
                 _start => sub {
-                    $_[HEAP]->{ua} = POE::Component::Client::HTTP->spawn(Alias => 'ua', Timeout => 20, FollowRedirects => 1);
+                    $_[HEAP]->{ua} = POE::Component::Client::HTTP->spawn(Alias => 'ua', FollowRedirects => 2, Timeout => 200);
                 },
                 http_response => sub { 
                     my $method = $_[10]->[1];
@@ -137,11 +138,11 @@ sub scale {
 }
 
 sub set_results {
-    my ($self, $box) = (shift, shift);
+    my ($self, $box, $results, %opts) = @_;
     # takes the name of a listbox, and an array of hashrefs ({ URL => description })
     my @values;
     my %labels;
-    for my $result (@_) {
+    for my $result (@$results) {
         push @values, $_ for keys %{$result};
         for (keys %{$result}) {
             my $desc = $$result{$_};
@@ -154,8 +155,13 @@ sub set_results {
         $self->widgets->{$box}->hide;
     } else {
         $self->widgets->{$box}->show;
-        $self->widgets->{$box}->values(\@values);
-        $self->widgets->{$box}->labels(\%labels);
+        if (!defined $opts{append}) {
+            $self->widgets->{$box}->values(\@values);
+            $self->widgets->{$box}->labels(\%labels);
+        } else {
+            $self->widgets->{$box}->insert_at($#{$self->widgets->{$box}->values}+1, \@values);
+            $self->widgets->{$box}->add_labels(\%labels);
+        }
     }
     $self->scale;
 }
@@ -188,12 +194,22 @@ sub fill_deep {
     for my $result (@$results) {
         push @out, { $result->{c} => "<bold>".$result->{t}."</bold>\n".($result->{a} ? $result->{a} : $result->{c}) } if defined $result->{c} and defined $result->{t};
     }
-    $self->set_results(deep_box => @out);
+
+    p $request->[0]->uri;
+    $self->set_results(deep_box => \@out, ($request->[0]->uri->query =~ /[&\?]s=[1-9]/ ? (append => 1) : ()));
+
+    # if there are already not enough results to fill the page, fetch another page
+    if ($#{$self->widgets->{deep_box}->values}*2 < $self->widgets->{deep_box}->canvasheight) {
+        my $URI = $request->[0]->uri->path."?".$request->[0]->uri->query;
+        $URI =~ s/([&\?])s=(\d+)/"$1s=".($2+1)/e;
+        $self->deep($URI);
+    }
 }
 
 sub deep {
-    my ($self, $call) = @_;
-    my $request = HTTP::Request->new(GET => "https://api.duckduckgo.com/$call");
+    my ($self, $call, %opts) = @_;
+    print STDERR "deep() "; p $call;
+    my $request = HTTP::Request->new(GET => "http".($self->config->{ssl} ? 's' : '')."://api.duckduckgo.com/$call");
     POE::Kernel->post('ua', 'request', 'http_response', $request, 'fill_deep');
 }
 
@@ -208,8 +224,8 @@ sub fill_ac {
 
 sub autocomplete {
     my ($self, $text) = @_;
-    my $request = HTTP::Request->new(GET => 'https://duckduckgo.com/ac/?type=list&q=' . uri_encode($text));
-    POE::Kernel->post('ua', 'request', 'http_response', $request, 'fill_ac');
+    my $request = HTTP::Request->new(GET => 'http'.($self->config->{ssl} ? 's' : '').'://duckduckgo.com/ac/?type=list&q=' . uri_encode($text));
+    POE::Kernel->post('ua', 'request', 'http_response', $request, 'fill_ac', {Timeout=>2}); # Set a tiny timeout so zombies kill themselves
 }
 
 sub duck {
@@ -266,7 +282,7 @@ sub duck {
 
     if (scalar @results) {
         #$self->widgets->{zci_box}->show;
-        $self->set_results(zci_box => @results);
+        $self->set_results(zci_box => \@results);
     } else {
         # FIXME: Hide the ZCI box when it isn't needed
         #$self->widgets->{zci_box}->hide;
@@ -423,12 +439,13 @@ sub run {
     $self->configure_widgets;
 
     $self->set_results(
-        zci_box =>
+        zci_box => [
             {'https://duckduckgo.com/'         => '<bold>Homepage</bold>'},
             {'https://duckduckgo.com/about'    => '<bold>About</bold>'},
             {'https://duckduckgo.com/goodies/' => '<bold>Goodies</bold>'},
             {'https://duckduckgo.com/feedback' => '<bold>Feedback</bold>'},
             {'https://duckduckgo.com/privacy'  => '<bold>Privacy</bold>'},
+        ]
     );
 
     POE::Kernel->run;

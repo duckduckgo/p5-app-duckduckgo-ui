@@ -1,6 +1,9 @@
 # Command to execute for the web browser -- %s is replaced with the URL.
 browser: w3m %s
 
+# Try to use SSL for all connections? (requires OpenSSL binaries at runtime)
+ssl: false
+
 # Extra URL params to pass to the API (see: https://duckduckgo.com/params)
 params:
     # SafeSearch
