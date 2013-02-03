@@ -134,7 +134,7 @@ sub scale {
     $self->widgets->{zci_box}->layout;
     $self->widgets->{deep_box}{-y} = $top + $self->widgets->{zci_box}->canvasheight;
     #$deep_box->{-height} = $res_wrap->canvasheight - $zci_box->height;
-    $_->layout and $_->draw for ($self->widgets->{zci_box}, $self->widgets->{deep_box}, $self->window);
+    $_->layout and $_->draw for ($self->result_wrapper);
 }
 
 sub set_results {
@@ -170,6 +170,7 @@ sub autocomplete_and_add {
     my ($self, $searchbox, $char) = @_;
 
     $searchbox->add_string($char);
+    $searchbox->draw;
 
     my $results = $self->autocomplete($searchbox->text);
 
@@ -195,20 +196,19 @@ sub fill_deep {
         push @out, { $result->{c} => "<bold>".$result->{t}."</bold>\n".($result->{a} ? $result->{a} : $result->{c}) } if defined $result->{c} and defined $result->{t};
     }
 
-    p $request->[0]->uri;
     $self->set_results(deep_box => \@out, ($request->[0]->uri->query =~ /[&\?]s=[1-9]/ ? (append => 1) : ()));
 
     # if there are already not enough results to fill the page, fetch another page
     if ($#{$self->widgets->{deep_box}->values}*2 < $self->widgets->{deep_box}->canvasheight) {
         my $URI = $request->[0]->uri->path."?".$request->[0]->uri->query;
-        $URI =~ s/([&\?])s=(\d+)/"$1s=".($2+1)/e;
+        $URI =~ s/([&\?])s=(\d+)/"$1s=".($2+$#out)/e;
+        p $URI;
         $self->deep($URI);
     }
 }
 
 sub deep {
     my ($self, $call, %opts) = @_;
-    print STDERR "deep() "; p $call;
     my $request = HTTP::Request->new(GET => "http".($self->config->{ssl} ? 's' : '')."://api.duckduckgo.com/$call");
     POE::Kernel->post('ua', 'request', 'http_response', $request, 'fill_deep');
 }
@@ -216,7 +216,8 @@ sub deep {
 # Autocompletion!
 sub fill_ac {
     my ($self, $request, $response) = @_[OBJECT, ARG0+1, ARG1+1];
-    $self->widgets->{zci_box}->values(from_json($response->[0]->content)->[1]);
+    eval { $self->widgets->{zci_box}->values(from_json($response->[0]->content)->[1]); }; # catch and log, but not report errors
+    print STDERR "Error while completing: $@\n" if $@;
     $self->widgets->{zci_box}->title("");
 
     $self->scale;
@@ -231,54 +232,54 @@ sub autocomplete {
 sub duck {
     my $self = shift;
     $self->widgets->{searchbox}->text($_[0]);
-    my $zci;
-    eval { $zci = $self->ddg->zci(shift); };
-    if ($@) {
+    my @results;
+    eval {
+        my $zci = $self->ddg->zci(shift);
+
+        if ($zci->has_redirect) {
+            $self->browse($zci->redirect);
+            return;
+        }
+        
+        if (defined $zci->_json->{Calls} && $zci->_json->{Calls}{deep}) {
+            $self->deep($zci->_json->{Calls}{deep});
+        }
+        
+        $self->widgets->{zci_box}->title(""); # clear the title, in case there is no heading
+        $self->widgets->{zci_box}->title($zci->heading) if $zci->has_heading;
+
+        if ($zci->has_results) {
+            for my $zci_box (@{$zci->results}) {
+                push @results, { $zci_box->first_url => "<bold>".$zci_box->text."</bold>" } if $zci_box->has_first_url && $zci_box->has_text;
+            }
+        }
+
+        if ($zci->has_answer) {
+            push @results, { 0 => "<bold>Answer: </bold>".$zci->answer };
+        }
+
+        if ($zci->has_abstract_text && $zci->has_abstract_url) {
+            push @results, { $zci->abstract_url->as_string => "<bold>Abstract: </bold>".$zci->abstract_text };
+        }
+
+        if ($zci->has_definition && $zci->has_definition_url) {
+            push @results, { $zci->definition_url->as_string => $zci->definition };
+        }
+
+        if ($zci->has_related_topics_sections) {
+            for my $sec (keys %{$zci->related_topics_sections}) {
+                my $section = $zci->related_topics_sections;
+                $section = $$section{$sec};
+                for my $zci_box (@{$section}) {
+                    push @results, { $zci_box->first_url => $zci_box->text } if $zci_box->has_first_url && $zci_box->has_text;
+                }
+            }
+        }
+    }; if ($@) {
         $self->ui->error("$@");
         return;
     }
 
-    if ($zci->has_redirect) {
-        $self->browse($zci->redirect);
-        return;
-    }
-
-    my @results;
-    
-    if (defined $zci->_json->{Calls} && $zci->_json->{Calls}{deep}) {
-        $self->deep($zci->_json->{Calls}{deep});
-    }
-    
-    $self->widgets->{zci_box}->title(""); # clear the title, in case there is no heading
-    $self->widgets->{zci_box}->title($zci->heading) if $zci->has_heading;
-
-    if ($zci->has_results) {
-        for my $zci_box (@{$zci->results}) {
-            push @results, { $zci_box->first_url => "<bold>".$zci_box->text."</bold>" } if $zci_box->has_first_url && $zci_box->has_text;
-        }
-    }
-
-    if ($zci->has_answer) {
-        push @results, { 0 => "<bold>Answer: </bold>".$zci->answer };
-    }
-
-    if ($zci->has_abstract_text && $zci->has_abstract_url) {
-        push @results, { $zci->abstract_url->as_string => "<bold>Abstract: </bold>".$zci->abstract_text };
-    }
-
-    if ($zci->has_definition && $zci->has_definition_url) {
-        push @results, { $zci->definition_url->as_string => $zci->definition };
-    }
-
-    if ($zci->has_related_topics_sections) {
-        for my $sec (keys %{$zci->related_topics_sections}) {
-            my $section = $zci->related_topics_sections;
-            $section = $$section{$sec};
-            for my $zci_box (@{$section}) {
-                push @results, { $zci_box->first_url => $zci_box->text } if $zci_box->has_first_url && $zci_box->has_text;
-            }
-        }
-    }
 
     if (scalar @results) {
         #$self->widgets->{zci_box}->show;
@@ -433,7 +434,6 @@ sub configure_widgets {
 
 sub run {
     my $self = shift;
-    $self->window->layout; $self->window->draw;
 
     $self->default_bindings;
     $self->configure_widgets;
@@ -448,6 +448,7 @@ sub run {
         ]
     );
 
+    $self->window->layout; $self->window->draw;
     POE::Kernel->run;
 }
 
