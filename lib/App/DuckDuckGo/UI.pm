@@ -206,9 +206,10 @@ sub fill_deep {
     $self->set_results(deep_box => \@out, ($request->[0]->uri->query =~ /[&\?]s=[1-9]/ ? (append => 1) : ()));
 
     # if there are already not enough results to fill the page, fetch another page
-    if ($#{$self->widgets->{deep_box}->values}*2 < $self->widgets->{deep_box}->canvasheight) {
+    if ($#{$self->widgets->{deep_box}->values}*2 < $self->widgets->{deep_box}->canvasheight && @out) {
         my $URI = $request->[0]->uri->path."?".$request->[0]->uri->query;
         $URI =~ s/([&\?])s=(\d+)/"$1s=".($2+$#out)/e;
+        $URI =~ s|^/*||;
         p $URI;
         $self->deep($URI);
     }
