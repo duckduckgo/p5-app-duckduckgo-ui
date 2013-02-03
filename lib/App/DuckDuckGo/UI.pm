@@ -108,12 +108,6 @@ sub _build_widgets {
             -y => $self->window->height - 3,
             -fg => 'blue',
         ),
-        autocompleter => $self->window->add(
-            undef, 'Listbox',
-            -htmltext => 1,
-            -y => $self->result_wrapper->{-y},
-            -height => 0,
-        ),
         window => $self->window,
         result_wrapper => $self->result_wrapper,
     }
@@ -207,7 +201,7 @@ sub deep {
 sub fill_ac {
     my ($self, $request, $response) = @_[OBJECT, ARG0+1, ARG1+1];
     $self->widgets->{zci_box}->values(from_json($response->[0]->content)->[1]);
-    $self->widgets->{zci_box}->title(undef);
+    $self->widgets->{zci_box}->title("");
 
     $self->scale;
 }
@@ -299,11 +293,6 @@ sub browse {
 #
 # Builtin keybindings
 #
-
-# TODO: Mouse support - directly clicking on results to visit them?
-#$zci_box->onSelectionChange(sub {
-#    browse shift->get_active_value;
-#});
 
 sub default_bindings {
     my $self = shift;
