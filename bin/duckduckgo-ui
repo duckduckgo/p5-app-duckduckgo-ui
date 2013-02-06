@@ -7,4 +7,6 @@ print STDERR "[".__PACKAGE__."] Opening log file at ".localtime."\n";
 
 use App::DuckDuckGo::UI;
 
-App::DuckDuckGo::UI->new->run;
+my $UI = App::DuckDuckGo::UI->new;
+$UI->duck(join(' ', @ARGV)) if @ARGV;
+$UI->run;

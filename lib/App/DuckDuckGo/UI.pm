@@ -7,13 +7,11 @@ our $VERSION = 'devel';
 
 use Curses;
 use Curses::UI::POE;
-use Curses::UI::TextEditor;
 use WWW::DuckDuckGo;
 use URI::Encode qw/uri_decode uri_encode/;
 use JSON;
 use POE 'Component::Client::HTTP';
 use HTTP::Request;
-use DDP;
 
 use App::DuckDuckGo::UI::Config;
 
@@ -210,7 +208,6 @@ sub fill_deep {
         my $URI = $request->[0]->uri->path."?".$request->[0]->uri->query;
         $URI =~ s/([&\?])s=(\d+)/"$1s=".($2+$#out)/e;
         $URI =~ s|^/*||;
-        p $URI;
         $self->deep($URI);
     }
 }
@@ -225,7 +222,8 @@ sub deep {
 sub fill_ac {
     my ($self, $request, $response) = @_[OBJECT, ARG0+1, ARG1+1];
     eval { $self->widgets->{zci_box}->values(from_json($response->[0]->content)->[1]); }; # catch and log, but not report errors
-    print STDERR "Error while completing: $@\n" if $@;
+    print STDERR "Error while autocompleting: $@\n" if $@;
+    use DDP;p $request;
     $self->widgets->{zci_box}->title("");
 
     $self->scale;
@@ -240,6 +238,7 @@ sub autocomplete {
 sub duck {
     my $self = shift;
     $self->widgets->{searchbox}->text($_[0]);
+    $self->widgets->{zci_box}->values([]);
     my @results;
     eval {
         my $zci = $self->ddg->zci(shift);
@@ -388,6 +387,7 @@ sub default_bindings {
         my $this = shift;
         if ($this->{-ypos} >= $this->{-max_selected} and $this->userdata->{name} eq 'zci') {
             $deep_box->focus;
+            $deep_box->option_first;
         } else {
             $this->{-routines}{'option-next'}->($this);
             #print STDERR "ypos: ".($this->{-ypos}*($this->userdata->{name} eq 'deep' ?2:1) % $this->canvasheight).", canvasheight: ".$this->canvasheight.", yscrpos: ";
@@ -446,6 +446,7 @@ sub run {
     $self->default_bindings;
     $self->configure_widgets;
 
+    # Set the default results, unless there are already results (set outside the package, like from @ARGV)
     $self->set_results(
         zci_box => [
             {'https://duckduckgo.com/'         => '<bold>Homepage</bold>'},
@@ -454,7 +455,7 @@ sub run {
             {'https://duckduckgo.com/feedback' => '<bold>Feedback</bold>'},
             {'https://duckduckgo.com/privacy'  => '<bold>Privacy</bold>'},
         ]
-    );
+    ) unless @{$self->widgets->{zci_box}->values};
 
     $self->window->layout; $self->window->draw;
     POE::Kernel->run;
