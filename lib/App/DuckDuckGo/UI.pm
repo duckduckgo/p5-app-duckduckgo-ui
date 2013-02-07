@@ -30,7 +30,7 @@ has ui => (
             -color_support => 1,
             inline_states => {
                 _start => sub {
-                    $_[HEAP]->{ua} = POE::Component::Client::HTTP->spawn(Alias => 'ua', FollowRedirects => 2, Timeout => 200);
+                    $_[HEAP]->{ua} = POE::Component::Client::HTTP->spawn(Alias => 'ua', FollowRedirects => 2, Timeout => 10);
                 },
                 http_response => sub { 
                     my $method = $_[10]->[1];
@@ -198,7 +198,8 @@ sub fill_deep {
     return if $@; # this likes to whine about incomplete or malformed json, just return if it does
 
     for my $result (@$results) {
-        push @out, { $result->{c} => "<bold>".$result->{t}."</bold>\n".($result->{a} ? $result->{a} : $result->{c}) } if defined $result->{c} and defined $result->{t};
+        my $pad = " " x ($self->result_wrapper->canvaswidth - (length($result->{t}) + length($result->{i}) + 1));
+        push @out, { $result->{c} => "<bold>".$result->{t}."</bold>$pad<underline>".$result->{i}."</underline>\n".($result->{a} ? $result->{a} : $result->{c}) } if defined $result->{c} and defined $result->{t};
     }
 
     $self->set_results(deep_box => \@out, ($request->[0]->uri->query =~ /[&\?]s=[1-9]/ ? (append => 1) : ()));
@@ -223,7 +224,6 @@ sub fill_ac {
     my ($self, $request, $response) = @_[OBJECT, ARG0+1, ARG1+1];
     eval { $self->widgets->{zci_box}->values(from_json($response->[0]->content)->[1]); }; # catch and log, but not report errors
     print STDERR "Error while autocompleting: $@\n" if $@;
-    use DDP;p $request;
     $self->widgets->{zci_box}->title("");
 
     $self->scale;
@@ -232,7 +232,7 @@ sub fill_ac {
 sub autocomplete {
     my ($self, $text) = @_;
     my $request = HTTP::Request->new(GET => 'http'.($self->config->{ssl} ? 's' : '').'://duckduckgo.com/ac/?type=list&q=' . uri_encode($text));
-    POE::Kernel->post('ua', 'request', 'http_response', $request, 'fill_ac', {Timeout=>2}); # Set a tiny timeout so zombies kill themselves
+    POE::Kernel->post('ua', 'request', 'http_response', $request, 'fill_ac', {Timeout=>1}); # 1 second timeout for autocomplete! so brave!
 }
 
 sub duck {
@@ -348,9 +348,21 @@ sub default_bindings {
 
     $zci_box->set_binding(sub {
         my $URL = shift->get_active_value;# or ($cui->dialog(shift->get_active_) and return); #TODO: handle value==0 somehow
-        if ($URL !~ m{^[a-z]+://}) { # FIXME: make this handle category pages and post-disambig results
-            #my $q = $1 // $URL; $q =~ s/_/ /g;
-            $self->duck(uri_decode($1 // $URL));
+
+        my $domainstart = index($URL, '://') + 3;
+        my $domain = substr(
+            $URL,
+            $domainstart,
+            index($URL, '/', $domainstart)-$domainstart
+        );
+        use DDP; p $domain;
+#        for my $rewrite (@{$self->config->{rewrites}}) {
+#            
+#        }
+
+        if ($URL !~ m{^[a-z]+://} || $URL =~ m{duckduckgo.com/([A-Z]\w+)$}) { # FIXME: make this handle category pages and post-disambig results
+            my $q = $1 // $URL; $q =~ s/_/ /g;
+            $self->duck(uri_decode($q));
         } else {
             $self->browse($URL);
         }

@@ -256,7 +256,6 @@ sub layout_content() {
 
     if ($this->{-focus}) {
         my $ycur = $this->{-ypos} - ($this->{-yscrpos}*2);
-        print STDERR "Motion : ".$this->{-ypos}." / ".($ycur*2 + 1)." / ".$this->canvasheight."\n";
 
         if ( ($ycur*2+1) >= $this->canvasheight ) {
             print STDERR $this->{-yscrpos}."\n";
@@ -368,10 +367,10 @@ sub draw(;$) {
             }
             
             # Make full line reverse or blank
-            $label =~ s/(.+?)(?:\r|\n|$)/$1.(" "x($this->canvaswidth-length($1)+0))."\n"/eg;
+            $label =~ s/(.+?)$/$1.(" "x($this->canvaswidth-length($1)-1))."\n"/eg;
 
             # Chop length if needed.
-            $label = substr($label,0,$this->canvaswidth*2);
+            #$label = substr($label,0,$this->canvaswidth*2);
 
             # Show label
             $this->text_draw($y, $prefix_len, $label);
