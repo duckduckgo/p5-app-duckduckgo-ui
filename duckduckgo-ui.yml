@@ -2,7 +2,7 @@
 browser: w3m %s
 
 # Try to use SSL for all connections? (requires OpenSSL binaries at runtime)
-ssl: true # FIXME: This setting does nothing when disabled, as DDG redirects to HTTPS no matter what
+ssl: false
 
 # Enable debugging in curses? (dumps all events to the log)
 debug: true

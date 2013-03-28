@@ -34,7 +34,8 @@ has ui => (
                 },
                 http_response => sub { 
                     my ($method, $seq) = @{$_[ARG0]->[1]};
-                    if(!defined($seq) or $seq > $self->last_ac_response) {
+                    $seq //= -1;
+                    if($seq > $self->last_ac_response || $seq == -1) {
                         $self->$method(@_)
                     } else {
                         POE::Kernel->post(ua => cancel => $_[ARG0]->[0]);
@@ -173,7 +174,7 @@ sub set_results {
             $self->widgets->{$box}->values(\@values);
             $self->widgets->{$box}->labels(\%labels);
         } else {
-            $self->widgets->{$box}->insert_at($#{$self->widgets->{$box}->values}+1, \@values);
+            $self->widgets->{$box}->insert_at($#{$self->widgets->{$box}->values}+2, \@values);
             $self->widgets->{$box}->add_labels(\%labels);
         }
     }
@@ -359,6 +360,8 @@ sub default_bindings {
     }, "\cl");
 
     $searchbox->set_binding(sub { $self->duck($searchbox->get) if $searchbox->get; }, KEY_ENTER);
+
+    # History bindings
     $searchbox->set_binding(sub { 
             my $this = shift;
             return if $this->history_index >= -1;
@@ -366,7 +369,6 @@ sub default_bindings {
             $this->text($self->history->[$this->history_index]);
         }, KEY_DOWN);
 
-    # History binding
     $searchbox->set_binding(sub {
             my $this = shift;
             return if 0-$this->history_index >= @{$self->history};
