@@ -471,7 +471,12 @@ sub configure_widgets {
                         $key_name = "KEY_" . uc $1;
                         $key_name = Curses->$key_name;
                     }
-                    $self->widgets->{$widget}->set_binding($self->config->{interface}{$widget}{keys}{$_}, $key_name);
+                    if ($self->config->{interface}{$widget}{keys}{$_} =~ /^eval (.+)$/) {
+                        my $code = $1;
+                        $self->widgets->{$widget}->set_binding(sub { eval "$code"; $self->ui->error("$@") if $@; }, $key_name);
+                    } else {
+                        $self->widgets->{$widget}->set_binding($self->config->{interface}{$widget}{keys}{$_}, $key_name);
+                    }
                 }
             }
             else {
