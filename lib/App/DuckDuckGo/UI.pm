@@ -321,7 +321,9 @@ sub duck {
         #$self->widgets->{zci_box}->hide;
         #$self->scale;
     }
-    $self->last_ac_response(0);
+
+    # Update search history
+    $self->history([@{$self->history}, $self->widgets->{searchbox}->text]);
 }
 
 
@@ -357,11 +359,24 @@ sub default_bindings {
     }, "\cl");
 
     $searchbox->set_binding(sub { $self->duck($searchbox->get) if $searchbox->get; }, KEY_ENTER);
-    $searchbox->set_binding(sub { $zci_box->focus }, KEY_DOWN);
+    $searchbox->set_binding(sub { 
+            my $this = shift;
+            return if $this->history_index >= -1;
+            $this->history_index++;
+            $this->text($self->history->[$this->history_index]);
+        }, KEY_DOWN);
+
+    # History binding
+    $searchbox->set_binding(sub {
+            my $this = shift;
+            return if 0-$this->history_index >= @{$self->history};
+            $this->history_index--;
+            $this->text($self->history->[$this->history_index]);
+        }, KEY_UP);
 
     $_->set_binding(sub { $searchbox->focus }, '/') for ($zci_box, $deep_box);
 
-# Bind space to show a dialog containing the full result
+    # Bind space to show a dialog containing the full result
     $deep_box->set_binding(sub {
         my $this = shift;
         my $message = $this->labels->{$this->get_active_value};
