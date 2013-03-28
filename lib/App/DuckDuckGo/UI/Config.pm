@@ -7,6 +7,7 @@ my %defaults = (
     browser => "w3m %s",
     params => {},
     ssl => 1,
+    debug => 0,
 );
 
 sub new {

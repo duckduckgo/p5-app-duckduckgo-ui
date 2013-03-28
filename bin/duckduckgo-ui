@@ -10,3 +10,6 @@ use App::DuckDuckGo::UI;
 my $UI = App::DuckDuckGo::UI->new;
 $UI->duck(join(' ', @ARGV)) if @ARGV;
 $UI->run;
+
+print STDERR "[".__PACKAGE__."] Nothing fatal; closing log file at ".localtime."\n";
+close STDERR;

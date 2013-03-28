@@ -26,7 +26,7 @@ has ui => (
         my $self = shift;
         Curses::UI::POE->new(
             -clear_on_exit => 1,
-            #-debug => 1,
+            -debug => $self->config->{debug},
             -color_support => 1,
             inline_states => {
                 _start => sub {
@@ -75,7 +75,6 @@ sub _build_result_wrapper {
     $self->window->add(
         'res_wrap', 'Container',
         -vscrollbar => 'right',
-        #-height => $self->window->height - $self->widgets->{searchbox}->height - 3, # make it fit between the entry and the "statusbar"
     ) 
 }
 
@@ -83,7 +82,7 @@ sub _build_widgets {
     my $self = shift;
     {
         searchbox => $self->window->add(
-            undef, 'TextEntry',
+            undef, 'SearchBox',
             -border => 1,
             -bfg => 'red',
             -onblur => sub { $self->ui->clear_binding(KEY_ENTER) }
@@ -173,6 +172,7 @@ sub set_results {
 
 sub autocomplete_and_add {
     my ($self, $searchbox, $char) = @_;
+    print STDERR "searchbox input: [$char]\n";
 
     $searchbox->add_string($char);
     $searchbox->draw;
@@ -189,6 +189,7 @@ sub autocomplete_and_add {
 # Deep results API
 sub fill_deep {
     my ($self, $request, $response) = @_[OBJECT, ARG0+1, ARG1+1];
+    print STDERR "[".__PACKAGE__."] fill_deep callback\n";
     my @out;
 
     return unless $response->[0]->content; # no results?
@@ -215,6 +216,7 @@ sub fill_deep {
 
 sub deep {
     my ($self, $call, %opts) = @_;
+    print STDERR "[".__PACKAGE__."] deep query: $call\n";
     my $request = HTTP::Request->new(GET => "http".($self->config->{ssl} ? 's' : '')."://api.duckduckgo.com/$call");
     POE::Kernel->post('ua', 'request', 'http_response', $request, 'fill_deep');
 }
@@ -222,6 +224,7 @@ sub deep {
 # Autocompletion!
 sub fill_ac {
     my ($self, $request, $response) = @_[OBJECT, ARG0+1, ARG1+1];
+    print STDERR "[".__PACKAGE__."] fill_ac callback\n";
     eval { $self->widgets->{zci_box}->values(from_json($response->[0]->content)->[1]); }; # catch and log, but not report errors
     print STDERR "Error while autocompleting: $@\n" if $@;
     $self->widgets->{zci_box}->title("");
@@ -237,6 +240,7 @@ sub autocomplete {
 
 sub duck {
     my $self = shift;
+    print STDERR "[".__PACKAGE__."] duck($_[0])\n";
     $self->widgets->{searchbox}->text($_[0]);
     $self->widgets->{zci_box}->values([]);
     my @results;
@@ -245,6 +249,7 @@ sub duck {
 
         if ($zci->has_redirect) {
             $self->browse($zci->redirect);
+            $self->scale;
             return;
         }
         
@@ -349,16 +354,6 @@ sub default_bindings {
     $zci_box->set_binding(sub {
         my $URL = shift->get_active_value;# or ($cui->dialog(shift->get_active_) and return); #TODO: handle value==0 somehow
 
-        my $domainstart = index($URL, '://') + 3;
-        my $domain = substr(
-            $URL,
-            $domainstart,
-            index($URL, '/', $domainstart)-$domainstart
-        );
-        use DDP; p $domain;
-#        for my $rewrite (@{$self->config->{rewrites}}) {
-#            
-#        }
 
         if ($URL !~ m{^[a-z]+://} || $URL =~ m{duckduckgo.com/([A-Z]\w+)$}) { # FIXME: make this handle category pages and post-disambig results
             my $q = $1 // $URL; $q =~ s/_/ /g;
@@ -401,11 +396,7 @@ sub default_bindings {
             $deep_box->focus;
             $deep_box->option_first;
         } else {
-            $this->{-routines}{'option-next'}->($this);
-            #print STDERR "ypos: ".($this->{-ypos}*($this->userdata->{name} eq 'deep' ?2:1) % $this->canvasheight).", canvasheight: ".$this->canvasheight.", yscrpos: ";
-            #$this->{-yscrpos}+=($this->userdata->{name} eq 'deep' ?2:1) unless ($this->{-ypos}*($this->userdata->{name} eq 'deep' ?2:1) % $this->canvasheight);
-            #p $this->{-yscrpos};
-            #$this->draw;
+            $this->option_next($this);
         }
     }, KEY_DOWN) for ($zci_box, $deep_box);
 
@@ -415,7 +406,7 @@ sub default_bindings {
             my $target = $this->userdata->{name} eq 'zci' ? $searchbox : $zci_box;
             $target->focus;
         } else {
-            $this->{-routines}{'option-prev'}->($this);
+            $this->option_prev($this);
         }
     }, KEY_UP) for ($zci_box, $deep_box);
 
