@@ -33,8 +33,13 @@ has ui => (
                     $_[HEAP]->{ua} = POE::Component::Client::HTTP->spawn(Alias => 'ua', FollowRedirects => 2, Timeout => 10);
                 },
                 http_response => sub { 
-                    my $method = $_[10]->[1];
-                    $self->$method(@_);
+                    my ($method, $seq) = @{$_[ARG0]->[1]};
+                    if(!defined($seq) or $seq > $self->last_ac_response) {
+                        $self->$method(@_)
+                    } else {
+                        POE::Kernel->post(ua => cancel => $_[ARG0]->[0]);
+                    }
+                    $self->last_ac_response($seq);
                 },
             }
         )
@@ -128,6 +133,11 @@ has history => (
     default => sub {[]},
 );
 
+has last_ac_response => (
+    is => 'rw',
+    default => sub {0},
+);
+
 sub scale {
     # properly scale the two result listboxes
     my $self = shift;
@@ -218,7 +228,7 @@ sub deep {
     my ($self, $call, %opts) = @_;
     print STDERR "[".__PACKAGE__."] deep query: $call\n";
     my $request = HTTP::Request->new(GET => "http".($self->config->{ssl} ? 's' : '')."://api.duckduckgo.com/$call");
-    POE::Kernel->post('ua', 'request', 'http_response', $request, 'fill_deep');
+    POE::Kernel->post('ua', 'request', 'http_response', $request, ['fill_deep']);
 }
 
 # Autocompletion!
@@ -235,11 +245,21 @@ sub fill_ac {
 sub autocomplete {
     my ($self, $text) = @_;
     my $request = HTTP::Request->new(GET => 'http'.($self->config->{ssl} ? 's' : '').'://duckduckgo.com/ac/?type=list&q=' . uri_encode($text));
-    POE::Kernel->post('ua', 'request', 'http_response', $request, 'fill_ac', {Timeout=>1}); # 1 second timeout for autocomplete! so brave!
+    POE::Kernel->post(
+        'ua',
+        'request',
+        'http_response',
+        $request,
+        ['fill_ac', length($self->widgets->{searchbox}->text)],
+        { Timeout => 1 } # 1-sec timeout for autocomplete, we don't want any lingering requests
+    );
 }
 
 sub duck {
     my $self = shift;
+
+    $self->last_ac_response(~0);
+
     print STDERR "[".__PACKAGE__."] duck($_[0])\n";
     $self->widgets->{searchbox}->text($_[0]);
     $self->widgets->{zci_box}->values([]);
@@ -301,6 +321,7 @@ sub duck {
         #$self->widgets->{zci_box}->hide;
         #$self->scale;
     }
+    $self->last_ac_response(0);
 }
 
 
