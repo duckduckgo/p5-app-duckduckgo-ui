@@ -26,10 +26,9 @@ interface:
         # The values here can be either from a set of predefined functions in the widget, or "eval $perl_code"
         keys:
             # lame examples; probably best to be removed
-            $: cursor-end
-            ^: cursor-home
-            '\': eval $self->ui->dialog('A backslash!');
+            #$: cursor-end
+            #^: cursor-home
+            #'\': eval $self->ui->dialog('A backslash!');
 
     window:
         -border: true
-    
