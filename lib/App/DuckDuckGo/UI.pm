@@ -7,7 +7,6 @@ our $VERSION = 'devel';
 
 use Curses;
 use Curses::UI::POE;
-use WWW::DuckDuckGo;
 use URI::Encode qw/uri_decode uri_encode/;
 use JSON;
 use POE 'Component::Client::HTTP';
@@ -117,16 +116,6 @@ sub _build_widgets {
         result_wrapper => $self->result_wrapper,
     }
 }
-
-has ddg => (
-    is => 'ro',
-    default => sub {
-        WWW::DuckDuckGo->new(
-            params => { t => 'cli', %{shift->config->{params}} },
-            http_agent_name => "App::DuckDuckGo::UI/$VERSION",
-        )
-    }
-);
 
 # Search history
 has history => (
@@ -261,63 +250,54 @@ sub autocomplete {
     );
 }
 
-sub duck {
-    my $self = shift;
+sub fill_zci {
+    my ($self, $request, $response) = @_[OBJECT, ARG1, ARG2];
+    my %zci = %{from_json($response->[0]->content)};
+    use DDP; p %zci;
 
-    $self->last_ac_response(~0);
-
-    print STDERR "[".__PACKAGE__."] duck($_[0])\n";
-    $self->widgets->{searchbox}->text($_[0]);
-    $self->widgets->{zci_box}->values([]);
     my @results;
-    eval {
-        my $zci = $self->ddg->zci(shift);
-
-        if ($zci->has_redirect) {
-            $self->browse($zci->redirect);
-            $self->scale;
-            return;
-        }
-        
-        if (defined $zci->_json->{Calls} && $zci->_json->{Calls}{deep}) {
-            $self->deep($zci->_json->{Calls}{deep});
-        }
-        
-        $self->widgets->{zci_box}->title(""); # clear the title, in case there is no heading
-        $self->widgets->{zci_box}->title($zci->heading) if $zci->has_heading;
-
-        if ($zci->has_results) {
-            for my $zci_box (@{$zci->results}) {
-                push @results, { $zci_box->first_url => "<bold>".$zci_box->text."</bold>" } if $zci_box->has_first_url && $zci_box->has_text;
-            }
-        }
-
-        if ($zci->has_answer) {
-            push @results, { 0 => "<bold>Answer: </bold>".$zci->answer };
-        }
-
-        if ($zci->has_abstract_text && $zci->has_abstract_url) {
-            push @results, { $zci->abstract_url->as_string => "<bold>Abstract: </bold>".$zci->abstract_text };
-        }
-
-        if ($zci->has_definition && $zci->has_definition_url) {
-            push @results, { $zci->definition_url->as_string => $zci->definition };
-        }
-
-        if ($zci->has_related_topics_sections) {
-            for my $sec (keys %{$zci->related_topics_sections}) {
-                my $section = $zci->related_topics_sections;
-                $section = $$section{$sec};
-                for my $zci_box (@{$section}) {
-                    push @results, { $zci_box->first_url => $zci_box->text } if $zci_box->has_first_url && $zci_box->has_text;
-                }
-            }
-        }
-    }; if ($@) {
-        $self->ui->error("$@");
+    if ($zci{Redirect}) {
+        $self->browse($zci{Redirect});
+        $self->scale;
         return;
     }
+    
+    if (defined $zci{Calls} && $zci{Calls}->{deep}) {
+        $self->deep($zci{Calls}->{deep});
+    }
+    
+    $self->widgets->{zci_box}->title(""); # clear the title, in case there is no heading
+    $self->widgets->{zci_box}->title($zci{Heading}) if $zci{Heading};
 
+    if ($zci{Results}) {
+        for my $zci_box (@{$zci{Results}}) {
+            push @results, { $$zci_box{FirstURL} => "<bold>".$$zci_box{Text}."</bold>" } if $$zci_box{FirstURL} && $$zci_box{Text};
+        }
+    }
+
+    if ($zci{Answer}) {
+        push @results, { 0 => "<bold>Answer: </bold>".$zci{Answer} };
+    }
+
+    if ($zci{AbstractText} && $zci{AbstractURL}) {
+        push @results, { $zci{AbstractURL} => "<bold>Abstract: </bold>".$zci{AbstractText} };
+    }
+
+    if ($zci{Definition} && $zci{DefinitionURL}) {
+        push @results, { $zci{DefinitionURL} => $zci{Definition} };
+    }
+
+    if ($zci{RelatedTopics}) {
+        for my $topic (@{$zci{RelatedTopics}}) {
+            if (defined $$topic{Topics}) {
+                for my $subtopic (@{$$topic{Topics}}) {
+                    push @results, { $$subtopic{FirstURL} => $$subtopic{Text} } if $$subtopic{FirstURL} && $$subtopic{FirstURL};
+                }
+            } else {
+                push @results, { $$topic{FirstURL} => $$topic{Text} } if $$topic{FirstURL} && $$topic{FirstURL};
+            }
+        }
+    }
 
     if (scalar @results) {
         #$self->widgets->{zci_box}->show;
@@ -326,6 +306,45 @@ sub duck {
         # FIXME: Hide the ZCI box when it isn't needed
         $self->widgets->{zci_box}->hide;
         $self->scale;
+    }
+}
+
+sub zci {
+    my ($self, $query) = @_;
+    my $request = HTTP::Request->new(GET => "http".($self->config->{ssl} ? 's' : '')."://api.duckduckgo.com/");
+    $request->uri->query_form(
+        q => $query,
+        t => "cli",
+        o => "json",
+        no_html => 1,
+        %{$self->config->{params}},
+    );
+    print STDERR "ass: $request";
+
+    POE::Kernel->post(
+        'ua',
+        'request',
+        'http_response',
+        $request,
+        ['fill_zci'],
+    );
+}
+
+sub duck {
+    my $self = shift;
+
+    $self->last_ac_response(~0);
+
+    print STDERR "[".__PACKAGE__."] duck($_[0])\n";
+    $self->widgets->{searchbox}->text($_[0]);
+    $self->widgets->{zci_box}->values([]);
+
+    eval {
+        $self->zci(shift);
+
+    }; if ($@) {
+        $self->ui->error("$@");
+        return;
     }
 
     # Update search history
@@ -343,7 +362,7 @@ sub browse {
         /\s+/,
         sprintf($self->config->{browser}, "$URI")
     );
-    $self->ui->error("Error $? ($!) in browser") if $?;
+    $self->ui->error("Error ".($?>>8)." ($!) in browser") if $?;
     $self->ui->reset_curses;
 }
 
