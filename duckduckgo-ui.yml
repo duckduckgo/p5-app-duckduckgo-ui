@@ -32,3 +32,6 @@ interface:
 
     window:
         -border: true
+
+    duck: # the ASCII duck at startup
+        -fg: green

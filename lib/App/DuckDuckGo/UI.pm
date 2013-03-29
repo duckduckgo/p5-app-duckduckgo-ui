@@ -14,6 +14,47 @@ use HTTP::Request;
 
 use App::DuckDuckGo::UI::Config;
 
+
+my $duck = <<"END";
+                             .:/++++/:-.`                                                           
+                             `-/syyyyyyyys+:.                                                       
+                            `+ossosssyyyyyyyys/.                                                    
+                             ``````.:/+oyyyyyyys/-.`                                                
+                               `:+syyyyyyyyyyyyyyyyso/.                                             
+                             `/syyyyyyyyyyyyyyyyyyyyyyy/`                                           
+                            .syyyyyyyyyyyyyyyyyyyyyyyyyys.                                          
+                           -syyyyysosyyyyyyyyyyyyyyys+//+o-                                         
+                          `oyyys::+ossyyyyyyyyyyyyyyssssssy-                                        
+                          :syyy/syyyyyyyyyyyyyyyyyyyyyyyyyys`                                       
+                          +syyyyyyyyyyyyyyyyyyyyyyyyyys+/+yy+                                       
+                          +syyyyyys:.-:syyyyyyyyyyyyyy.   -yy.                                      
+                          :yyyyyyy-    .yyyyyyyyyyyyyy:` `:yy/                                      
+                          `ysyyyyy/`  `/yyyyyyyyyyyyyyysssyyyo       ``..--..`                      
+                           osyyyyyysoosyyyyyyyyyyyyyyyyyyyyyy+``...---::::::::.                     
+                           -ysyyyyyyyyyyyyyyyyyyyyysoooo+++//:-:::::::::::--.`                      
+                           `ssyyyyyyyyyyyyyyyyyso/:::::::::::::::::::---.``                         
+                            /yyyyyyyyyyyyyyyys+::::::::::::::::---..``                              
+                            `ysyyyyyyyyyyyyyy/:::::::.```....```                                    
+                             osyyyyyyyyyyyyyyo:::::::                                               
+                             -ysyyyyyyyyyyyyyyo::::::-.``        ```...----                         
+                              ssyyyyyyyyyyyyyyyy/.---:::----------::::::--`                         
+                              :yyyyyyyyyyyyyyyyy/   ``..--------------.``                           
+                              `ysyyyyyyyyyyyyyyy/          ````````                                 
+                               +syyyyyyyyyyyyyyys                                                   
+                               .ysyyyyyyyyyyyyyyy-                                                  
+                                osyyyyyyyyyyyyyyyo        `.-`                                      
+                                :yyyyooosyyyyyyyyy:    `-/oss+                                      
+                                `ssys://++ossyyssso-..:+oossss`                                     
+                                 /yys://++ooss++oooso//+oossss-                                     
+                                 .ysy://++ooss++oooss//+oossss-                                     
+                                  osy://++ooss++oooss/++oossss.                                     
+                                  -ys///++oossssssssyys--/+oso                                      
+                                   sso//+ossyyyyyyyyyyyo`                                           
+                                   -sysyyyyyyyyyyyyyyyyys`                                          
+                                    :/osyyyyyyyyyyyyyyyyyo                                          
+END
+
+
 has config => (
     is => 'ro',
     default => sub { App::DuckDuckGo::UI::Config->new },
@@ -114,6 +155,13 @@ sub _build_widgets {
         ),
         window => $self->window,
         result_wrapper => $self->result_wrapper,
+        duck => $self->window->add(
+            undef, 'TextViewer',
+            -text => $duck,
+            -fg => 'green',
+            -y => 12,
+            -x => ($self->window->width / 2) - 55,
+        ),
     }
 }
 
@@ -290,15 +338,18 @@ sub fill_zci {
     if ($zci{RelatedTopics}) {
         for my $topic (@{$zci{RelatedTopics}}) {
             if (defined $$topic{Topics}) {
-                for my $subtopic (@{$$topic{Topics}}) {
-                    push @results, { $$subtopic{FirstURL} => $$subtopic{Text} } if $$subtopic{FirstURL} && $$subtopic{FirstURL};
-                }
+                # FIXME: This adds _way_ too many topics; need to put it under an expander
+                #for my $subtopic (@{$$topic{Topics}}) {
+                #    push @results, { $$subtopic{FirstURL} => $$subtopic{Text} } if $$subtopic{FirstURL} && $$subtopic{FirstURL};
+                #}
             } else {
                 push @results, { $$topic{FirstURL} => $$topic{Text} } if $$topic{FirstURL} && $$topic{FirstURL};
             }
         }
     }
 
+    # Make sure the ZCI isn't massive
+    shift @results while @results > $self->window->height / 4;
     if (scalar @results) {
         #$self->widgets->{zci_box}->show;
         $self->set_results(zci_box => \@results);
@@ -332,6 +383,7 @@ sub zci {
 
 sub duck {
     my $self = shift;
+    $self->widgets->{duck}->hide;
 
     $self->last_ac_response(~0);
 
@@ -529,6 +581,7 @@ sub run {
     ) unless @{$self->widgets->{zci_box}->values};
 
     $self->window->layout; $self->window->draw;
+    $self->widgets->{duck}->draw if $self->window->height > 50 && $self->window->width > 85;
     POE::Kernel->run;
 }
 
