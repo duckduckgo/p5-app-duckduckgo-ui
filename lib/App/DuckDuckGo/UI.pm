@@ -485,8 +485,7 @@ sub default_bindings {
         my ($this, $event, $x, $y) = @_;
         my $newypos = $this->{-yscrpos} + $y;
         my $i = (($newypos - ($newypos%2 ? 1 : 0)) + ($this->{-yscrpos} ? $this->{-yscrpos}+0.5 : 0 ) ) /2; print STDERR "clicked: $i\n";
-        #$self->browse($this->values->[$i]) if (@{$this->{-values}} and $newypos >= 0); # FIXME
-        $self->ui->error("Clicker support is buggy and rather broken.\nURL I think you clicked: ".$this->values->[$i]);
+        $self->browse($this->values->[$i]) if (@{$this->{-values}} and $newypos >= 0);
     }, BUTTON1_CLICKED);
 
 # Show the URL
