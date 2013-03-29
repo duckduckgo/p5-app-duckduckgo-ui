@@ -241,6 +241,7 @@ sub fill_ac {
     print STDERR "[".__PACKAGE__."] fill_ac callback\n";
     eval { $self->widgets->{zci_box}->values(from_json($response->[0]->content)->[1]); }; # catch and log, but not report errors
     print STDERR "Error while autocompleting: $@\n" if $@;
+    $self->widgets->{zci_box}->show if $self->widgets->{zci_box}->hidden;
     $self->widgets->{zci_box}->title("");
 
     $self->scale;
