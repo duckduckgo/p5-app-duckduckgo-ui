@@ -145,11 +145,14 @@ sub scale {
     my $top = $self->widgets->{searchbox}{-y} + $self->widgets->{searchbox}->height;
     $self->result_wrapper->{-height} = $self->window->height - $self->widgets->{searchbox}->height - 3;
     $self->result_wrapper->{-y} = $top;
-    $self->widgets->{zci_box}{-height} = ($#{$self->widgets->{zci_box}->values})+$top;
-    $self->widgets->{zci_box}->layout;
-    $self->widgets->{deep_box}{-y} = $top + $self->widgets->{zci_box}->canvasheight;
-    #$deep_box->{-height} = $res_wrap->canvasheight - $zci_box->height;
-    $_->layout and $_->draw for ($self->result_wrapper);
+    if ($self->widgets->{zci_box}->hidden) {
+        $self->widgets->{deep_box}->{-y} = 0;
+    } else {
+        $self->widgets->{zci_box}{-height} = ($#{$self->widgets->{zci_box}->values})+$top;
+        $self->widgets->{zci_box}->layout;
+        $self->widgets->{deep_box}{-y} = $top + $self->widgets->{zci_box}->canvasheight;
+    }
+    $self->result_wrapper->layout, $self->result_wrapper->draw;
 }
 
 sub set_results {
@@ -319,8 +322,8 @@ sub duck {
         $self->set_results(zci_box => \@results);
     } else {
         # FIXME: Hide the ZCI box when it isn't needed
-        #$self->widgets->{zci_box}->hide;
-        #$self->scale;
+        $self->widgets->{zci_box}->hide;
+        $self->scale;
     }
 
     # Update search history
@@ -364,7 +367,7 @@ sub default_bindings {
     # History bindings
     $searchbox->set_binding(sub { 
             my $this = shift;
-            return if $this->history_index >= -1;
+            $zci_box->focus, return if $this->history_index >= -1;
             $this->history_index++;
             $this->text($self->history->[$this->history_index]);
         }, KEY_DOWN);
