@@ -213,8 +213,9 @@ sub fill_deep {
     return if $@; # this likes to whine about incomplete or malformed json, just return if it does
 
     for my $result (@$results) {
-        my $pad = " " x ($self->result_wrapper->canvaswidth - (length($result->{t}) + length($result->{i}) + 1));
-        push @out, { $result->{c} => "<bold>".$result->{t}."</bold>$pad<underline>".$result->{i}."</underline>\n".($result->{a} ? $result->{a} : $result->{c}) } if defined $result->{c} and defined $result->{t};
+        my $time = defined $result->{e} ? " (".$result->{e}.")" : "";
+        my $pad = " " x ($self->result_wrapper->canvaswidth - (length($result->{t}) + length($result->{i}) + length($time) + 1));
+        push @out, { $result->{c} => "<bold>".$result->{t}."</bold>$time$pad<underline>".$result->{i}."</underline>\n".($result->{a} ? $result->{a} : $result->{c}) } if defined $result->{c} and defined $result->{t};
     }
 
     $self->set_results(deep_box => \@out, ($request->[0]->uri->query =~ /[&\?]s=[1-9]/ ? (append => 1) : ()));
@@ -328,7 +329,7 @@ sub duck {
     }
 
     # Update search history
-    $self->history([@{$self->history}, $self->widgets->{searchbox}->text]);
+    $self->history([@{$self->history}, $self->widgets->{searchbox}->text]) unless defined $self->history->[-1] && $self->history->[-1] eq $self->widgets->{searchbox}->text;
 }
 
 
@@ -363,7 +364,7 @@ sub default_bindings {
         $cui->draw;
     }, "\cl");
 
-    $searchbox->set_binding(sub { $self->duck($searchbox->get) if $searchbox->get; }, KEY_ENTER);
+    $searchbox->set_binding(sub { $self->duck($searchbox->get) if $searchbox->get; $searchbox->history_index(0) }, KEY_ENTER);
 
     # History bindings
     $searchbox->set_binding(sub { 
@@ -375,12 +376,13 @@ sub default_bindings {
 
     $searchbox->set_binding(sub {
             my $this = shift;
+            print STDERR 0-$this->history_index, ", ", "@{$self->history}";
             return if 0-$this->history_index >= @{$self->history};
             $this->history_index--;
             $this->text($self->history->[$this->history_index]);
         }, KEY_UP);
 
-    $_->set_binding(sub { $searchbox->focus }, '/') for ($zci_box, $deep_box);
+    $_->set_binding(sub { $searchbox->focus, $searchbox->text("") }, '/') for ($zci_box, $deep_box);
 
     # Bind space to show a dialog containing the full result
     $deep_box->set_binding(sub {

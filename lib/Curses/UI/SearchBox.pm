@@ -12,7 +12,7 @@ around new => sub { shift->() };
 
 has history_index => (
     is => 'rw',
-    default => sub {-1},
+    default => sub {0},
 );
 
 1;
