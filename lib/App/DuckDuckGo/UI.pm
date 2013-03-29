@@ -301,7 +301,6 @@ sub autocomplete {
 sub fill_zci {
     my ($self, $request, $response) = @_[OBJECT, ARG1, ARG2];
     my %zci = %{from_json($response->[0]->content)};
-    use DDP; p %zci;
 
     my @results;
     if ($zci{Redirect}) {
@@ -368,9 +367,9 @@ sub zci {
         t => "cli",
         o => "json",
         no_html => 1,
+        no_redirect => 1,
         %{$self->config->{params}},
     );
-    print STDERR "ass: $request";
 
     POE::Kernel->post(
         'ua',
