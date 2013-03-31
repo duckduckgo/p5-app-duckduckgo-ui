@@ -300,7 +300,12 @@ sub autocomplete {
 
 sub fill_zci {
     my ($self, $request, $response) = @_[OBJECT, ARG1, ARG2];
-    my %zci = %{from_json($response->[0]->content)};
+    my %zci;
+    eval { %zci = %{from_json($response->[0]->content)}; }
+    if ($@) {
+        print STDERR "Error!", $response->[0]->content, "\n";
+        $self->ui->error("Error with API response: $@. Response data was logged to ./err.log.");
+    }
 
     my @results;
     if ($zci{Redirect}) {
@@ -570,11 +575,11 @@ sub run {
     # Set the default results, unless there are already results (set outside the package, like from @ARGV)
     $self->set_results(
         zci_box => [
-            {'https://duckduckgo.com/'         => '<bold>Homepage</bold>'},
-            {'https://duckduckgo.com/about'    => '<bold>About</bold>'},
-            {'https://duckduckgo.com/goodies/' => '<bold>Goodies</bold>'},
-            {'https://duckduckgo.com/feedback' => '<bold>Feedback</bold>'},
-            {'https://duckduckgo.com/privacy'  => '<bold>Privacy</bold>'},
+            {'https://duckduckgo.com/'         => '<bold>Homepage</bold>' } ,
+            {'https://duckduckgo.com/about'    => '<bold>About</bold>'    } ,
+            {'https://duckduckgo.com/goodies/' => '<bold>Goodies</bold>'  } ,
+            {'https://duckduckgo.com/feedback' => '<bold>Feedback</bold>' } ,
+            {'https://duckduckgo.com/privacy'  => '<bold>Privacy</bold>'  } ,
         ]
     ) unless @{$self->widgets->{zci_box}->values};
 
