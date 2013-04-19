@@ -6,7 +6,7 @@ use Config::Any;
 my %defaults = (
     browser => "w3m %s",
     params => {},
-    ssl => 1,
+    ssl => 0,
     debug => 0,
 );
 
