@@ -13,8 +13,9 @@ my %defaults = (
 sub new {
     my %config = %defaults;
 
+    my $config_home = $ENV{XDG_CONFIG_HOME} // "$ENV{HOME}/.config";
     my @files = Config::Any->load_stems({
-            stems   => ["$ENV{XDG_CONFIG_HOME}/duckduckgo-ui", "./duckduckgo-ui"],
+            stems   => ["$config_home/duckduckgo-ui", "./duckduckgo-ui", "/etc/duckduckgo-ui"],
             use_ext => 1,
     });
 
