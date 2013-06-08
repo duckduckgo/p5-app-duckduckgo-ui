@@ -249,8 +249,16 @@ sub fill_deep {
     eval { $results = from_json($response->[0]->content); };
     return if $@; # this likes to whine about incomplete or malformed json, just return if it does
 
+    # d.js query for the next page
+    my $next;
+
     for my $result (@$results) {
         my $time = defined $result->{e} ? " (".$result->{e}.")" : "";
+
+        # handles {"n":...} (next page) which has no actual result
+        $next = $result->{n} if defined $result->{n};
+        next unless defined $result->{t};
+
         my $pad = " " x ($self->result_wrapper->canvaswidth - (length($result->{t}) + length($result->{i}) + length($time) + 1));
         push @out, { $result->{c} => "<bold>".$result->{t}."</bold>$time$pad<underline>".$result->{i}."</underline>\n".($result->{a} ? $result->{a} : $result->{c}) } if defined $result->{c} and defined $result->{t};
     }
@@ -259,10 +267,12 @@ sub fill_deep {
 
     # if there are already not enough results to fill the page, fetch another page
     if ($#{$self->widgets->{deep_box}->values}*2 < $self->widgets->{deep_box}->canvasheight && @out) {
-        my $URI = $request->[0]->uri->path."?".$request->[0]->uri->query;
-        $URI =~ s/([&\?])s=(\d+)/"$1s=".($2+$#out)/e;
-        $URI =~ s|^/*||;
-        $self->deep($URI);
+        unless (defined $next) { # If there was no "n", construct the next-page link manually
+            $next = $request->[0]->uri->path."?".$request->[0]->uri->query;
+            $next =~ s/([&\?])s=(\d+)/"$1s=".($2+$#out)/e;
+            $next =~ s|^/*||;
+        }
+        $self->deep($next);
     }
 }
 
