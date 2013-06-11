@@ -80,7 +80,7 @@ has ui => (
                     } else {
                         POE::Kernel->post(ua => cancel => $_[ARG0]->[0]);
                     }
-                    $self->last_ac_response($seq) unless $seq == -1;
+                    $self->last_ac_response($seq) if $seq > $self->last_ac_response;
                 },
             }
         )
