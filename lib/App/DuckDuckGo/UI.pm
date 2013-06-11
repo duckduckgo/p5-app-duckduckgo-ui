@@ -75,9 +75,7 @@ has ui => (
                 http_response => sub { 
                     my ($method, $seq) = @{$_[ARG0]->[1]};
                     $seq //= -1;
-                    print STDERR localtime." $seq > ".$self->last_ac_response.": $method\n";
                     if($seq > $self->last_ac_response || $seq == -1) {
-                        warn "methoding";
                         $self->$method(@_)
                     } else {
                         POE::Kernel->post(ua => cancel => $_[ARG0]->[0]);
