@@ -35,3 +35,10 @@ interface:
 
     duck: # the ASCII duck at startup
         -fg: green
+
+# URL "filters" -- regular expressions for automatically changing 
+# result links, e.g. automatically changing to the text-friendly versions of sites
+# Uncomment this whole block to use it -- there are no defaults.
+
+#filters:
+#    '^https?://(?:www.)?google.com/search.+q=([^&]+).*': 'https://duckduckgo.com/?q=$1' # would replace all links to Google searches with DDG (just an example...)

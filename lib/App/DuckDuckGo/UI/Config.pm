@@ -8,6 +8,9 @@ my %defaults = (
     params => {},
     ssl => 0,
     debug => 0,
+    filters => {
+        #'^https?://(?:www\.)?duckduckgo.([a-z]{2,4})/([A-Z][^?]+|\?[^?]+).*$' => '"https://duckduckgo.$1/lite/".(substr($2,0,1) eq "?" ? "" : "?q=")."$2"',
+    },
 );
 
 sub new {
@@ -23,6 +26,10 @@ sub new {
         my $cfg = $$file[0]->{(keys($$file[0]))[0]};
         $config{$_} = $$cfg{$_} for keys %$cfg;
     }
+
+    # Some magic for the filters - reverses the hash and compiles the regexen
+    $config{filters} = {reverse %{$config{filters}}};
+    $config{filters}->{$_} = qr/$config{filters}->{$_}/ for keys %{$config{filters}};
 
     return \%config;
 }

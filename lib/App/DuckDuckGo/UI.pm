@@ -75,12 +75,14 @@ has ui => (
                 http_response => sub { 
                     my ($method, $seq) = @{$_[ARG0]->[1]};
                     $seq //= -1;
+                    print STDERR localtime." $seq > ".$self->last_ac_response.": $method\n";
                     if($seq > $self->last_ac_response || $seq == -1) {
+                        warn "methoding";
                         $self->$method(@_)
                     } else {
                         POE::Kernel->post(ua => cancel => $_[ARG0]->[0]);
                     }
-                    $self->last_ac_response($seq);
+                    $self->last_ac_response($seq) unless $seq == -1;
                 },
             }
         )
@@ -198,11 +200,19 @@ sub set_results {
     my @values;
     my %labels;
     for my $result (@$results) {
-        push @values, $_ for keys %{$result};
         for (keys %{$result}) {
             my $desc = $$result{$_};
+
+            # Handle user-supplied URL "filters" -- for example, the one which changes all duckduckgo.com queries in the results to /lite/
+            for my $sub (keys %{$self->config->{filters}}) {
+                my $re = $self->config->{filters}{$sub};
+                $sub =~ s/"/\\"/g;
+                s/$re/"$sub"/eei;
+            }
+
             $desc =~ s/'''//g;
             $labels{$_} = $desc;
+            push @values, $_;
         }
     }
     if (!@values) {
@@ -304,7 +314,6 @@ sub autocomplete {
         'http_response',
         $request,
         ['fill_ac', length($self->widgets->{searchbox}->text)],
-        { Timeout => 1 } # 1-sec timeout for autocomplete, we don't want any lingering requests
     );
 }
 
@@ -365,7 +374,7 @@ sub fill_zci {
     }
 
     # Make sure the ZCI isn't massive
-    shift @results while @results > $self->window->height / 4;
+    pop @results while @results > $self->window->height / 4;
     if (scalar @results) {
         #$self->widgets->{zci_box}->show;
         $self->set_results(zci_box => \@results);
@@ -377,7 +386,8 @@ sub fill_zci {
 }
 
 sub zci {
-    my ($self, $query) = @_;
+    my ($self, $query, %params) = @_;
+
     my $request = HTTP::Request->new(GET => "http".($self->config->{ssl} ? 's' : '')."://api.duckduckgo.com/");
     $request->uri->query_form(
         q => $query,
@@ -386,6 +396,7 @@ sub zci {
         no_html => 1,
         no_redirect => 1,
         %{$self->config->{params}},
+        %params,
     );
 
     POE::Kernel->post(
@@ -393,22 +404,23 @@ sub zci {
         'request',
         'http_response',
         $request,
-        ['fill_zci'],
+        ['fill_zci', length($self->widgets->{searchbox}->text)+10],
     );
 }
 
 sub duck {
-    my $self = shift;
+    my ($self, $query, %params) = @_;
+
     $self->widgets->{duck}->hide;
 
-    $self->last_ac_response(~0);
+    $self->last_ac_response(0);
 
-    print STDERR "[".__PACKAGE__."] duck($_[0])\n";
-    $self->widgets->{searchbox}->text($_[0]);
+    print STDERR "[".__PACKAGE__."] duck($query)\n";
+    $self->widgets->{searchbox}->text($query);
     $self->widgets->{zci_box}->values([]);
 
     eval {
-        $self->zci(shift);
+        $self->zci($query, %params);
 
     }; if ($@) {
         $self->ui->error("$@");
@@ -426,6 +438,14 @@ sub duck {
 sub browse {
     my ($self, $URI) = @_;
     $self->ui->leave_curses;
+
+    if ($URI =~ qr!^https?://duckduckgo.[a-z]+/([A-Z][^?]+|.*[?&]q=[^&]+).*$!) {
+        my $q = $1;
+        $q =~ s/_/ /g;
+        $self->duck($q, skip_disambig => 1);
+        return;
+    }
+
     system split(
         /\s+/,
         sprintf($self->config->{browser}, "$URI")
@@ -589,7 +609,7 @@ sub run {
         zci_box => [
             {'https://duckduckgo.com/'         => '<bold>Homepage</bold>' } ,
             {'https://duckduckgo.com/about'    => '<bold>About</bold>'    } ,
-            {'https://duckduckgo.com/goodies/' => '<bold>Goodies</bold>'  } ,
+            {'https://duckduckgo.com/goodies' => '<bold>Goodies</bold>'  } ,
             {'https://duckduckgo.com/feedback' => '<bold>Feedback</bold>' } ,
             {'https://duckduckgo.com/privacy'  => '<bold>Privacy</bold>'  } ,
         ]
