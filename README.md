@@ -4,7 +4,7 @@
 This is an interactive Curses-based user interface for DuckDuckGo.
 
 #### Screenshots:
-![screenshot 1](http://i.imgur.com/KKtIIVk.jpg)
+![screenshot 1](http://i.imgur.com/fVfAaDM.png)
 ![screenshot 2](http://i.imgur.com/lPPo2fg.jpg)
 ---------------
 
