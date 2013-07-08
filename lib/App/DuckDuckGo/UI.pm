@@ -460,8 +460,8 @@ sub browse {
 sub default_bindings {
     my $self = shift;
     my ($cui, $zci_box, $deep_box, $searchbox, $statusbar) = ($self->ui, $self->widgets->{zci_box}, $self->widgets->{deep_box}, $self->widgets->{searchbox}, $self->widgets->{statusbar});
-    $cui->set_binding(sub {exit}, "\cq");
-    $cui->set_binding(sub {exit}, "\cc");
+    $cui->set_binding(sub { exit 0 }, "\cq");
+    $cui->set_binding(sub { exit 0 }, "\cc");
 
     $cui->set_binding(sub {
         my $cui = shift;
@@ -472,9 +472,10 @@ sub default_bindings {
     $searchbox->set_binding(sub { $self->duck($searchbox->get) if $searchbox->get; $searchbox->history_index(0) }, KEY_ENTER);
 
     # History bindings
-    $searchbox->set_binding(sub { 
+    $searchbox->set_binding(sub {
             my $this = shift;
-            $zci_box->focus, return if $this->history_index >= -1;
+            # Focus either the ZCI box or the Deep box if this is the last history entry already.
+            $zci_box->hidden ? $deep_box->focus : $zci_box->focus, return if $this->history_index >= -1;
             $this->history_index++;
             $this->text($self->history->[$this->history_index]);
         }, KEY_DOWN);
@@ -551,7 +552,8 @@ sub default_bindings {
     $_->set_binding(sub {
         my $this = shift;
         if ($this->{-ypos} == 0) {
-            my $target = $this->userdata->{name} eq 'zci' ? $searchbox : $zci_box;
+            # Move right up to the ZCI box or search box -- whichever is closer
+            my $target = $this->userdata->{name} eq 'zci' || $zci_box->hidden ? $searchbox : $zci_box;
             $target->focus;
         } else {
             $this->option_prev($this);
