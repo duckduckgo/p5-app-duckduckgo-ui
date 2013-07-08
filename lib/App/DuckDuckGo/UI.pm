@@ -79,8 +79,9 @@ has ui => (
                 http_response => sub {
                     my ($method, $seq) = @{$_[ARG0]->[1]};
                     $seq //= -1;
+                    print STDERR "last: ", $self->last_ac_response, ", seq: $seq\n";
                     if($seq > $self->last_ac_response || $seq == -1) {
-                        $self->$method(@_)
+                        $self->$method(@_);
                     } else {
                         POE::Kernel->post(ua => cancel => $_[ARG0]->[0]);
                     }
@@ -211,6 +212,7 @@ sub set_results {
             # Handle user-supplied URL "filters" -- for example, the one which changes all duckduckgo.com queries in the results to /lite/
             for my $sub (keys %{$self->config->{filters}}) {
                 my $re = $self->config->{filters}{$sub};
+
                 $sub =~ s/"/\\"/g;
                 s/$re/"$sub"/eei;
             }
@@ -243,6 +245,8 @@ sub autocomplete_and_add {
     # Quickly add the char and redraw, so autocomplete doesn't make typing appear to hang.
     $searchbox->add_string($char);
     $searchbox->draw;
+
+    $self->last_ac_response(0) if $self->last_ac_response == ~0;
 
     my $results = $self->autocomplete($searchbox->text);
 
@@ -283,12 +287,7 @@ sub fill_deep {
 
     # if there are already not enough results to fill the page, fetch another page
     if ($#{$self->widgets->{deep_box}->values}*2 < $self->widgets->{deep_box}->canvasheight && @out) {
-        unless (defined $next) { # If there was no "n", construct the next-page link manually
-            $next = $request->[0]->uri->path."?".$request->[0]->uri->query;
-            $next =~ s/([&\?])s=(\d+)/"$1s=".($2+$#out)/e;
-            $next =~ s|^/*||;
-        }
-        $self->deep($next);
+        $self->deep($next) if defined $next;
     }
 }
 
@@ -388,8 +387,6 @@ sub fill_zci {
 
     # Make sure the ZCI isn't massive
     pop @results while @results > $self->window->height / 4;
-    print STDERR "BLEEP: ";
-    warn scalar @results;
     #$self->widgets->{zci_box}->show;
     $self->set_results(zci_box => \@results);
 }
