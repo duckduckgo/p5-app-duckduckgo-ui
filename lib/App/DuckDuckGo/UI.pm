@@ -79,13 +79,13 @@ has ui => (
                 http_response => sub {
                     my ($method, $seq) = @{$_[ARG0]->[1]};
                     $seq //= -1;
-                    print STDERR "last: ", $self->last_ac_response, ", seq: $seq\n";
                     if($seq > $self->last_ac_response || $seq == -1) {
                         $self->$method(@_);
                     } else {
                         POE::Kernel->post(ua => cancel => $_[ARG0]->[0]);
                     }
-                    $self->last_ac_response($seq) if $seq > $self->last_ac_response;
+                    $self->last_ac_response($seq) 
+                        if $seq > $self->last_ac_response;
                 },
             }
         )
@@ -185,7 +185,9 @@ sub scale {
     # properly scale the two result listboxes
     my $self = shift;
     my $top = $self->widgets->{searchbox}{-y} + $self->widgets->{searchbox}->height;
-    $self->result_wrapper->{-height} = $self->window->height - $self->widgets->{searchbox}->height - 3;
+    $self->result_wrapper->{-height} = $self->window->height 
+        - $self->widgets->{searchbox}->height 
+        - 3;
     $self->result_wrapper->{-y} = $top;
     if ($self->widgets->{zci_box}->hidden) {
         $self->widgets->{deep_box}->{-y} = 0;
@@ -279,11 +281,24 @@ sub fill_deep {
         $next = $result->{n} if defined $result->{n};
         next unless defined $result->{t};
 
-        my $pad = " " x ($self->result_wrapper->canvaswidth - (length($result->{t}) + length($result->{i}) + length($time) + 1));
-        push @out, { $result->{c} => "<bold>".$result->{t}."</bold>$time$pad<underline>".$result->{i}."</underline>\n".($result->{a} ? $result->{a} : $result->{c}) } if defined $result->{c} and defined $result->{t};
+        my $pad = " " x 
+            ($self->result_wrapper->canvaswidth - 
+                (length($result->{t}) + length($result->{i}) +
+                    length($time) + 1)
+            );
+
+        push @out, 
+            { 
+                $result->{c} => "<bold>".$result->{t}."</bold>$time$pad<underline>" .
+                $result->{i}."</underline>\n".($result->{a} ? $result->{a} : $result->{c}) 
+            } 
+            if defined $result->{c} and defined $result->{t};
     }
 
-    $self->set_results(deep_box => \@out, ($request->[0]->uri->query =~ /[&\?]s=[1-9]/ ? (append => 1) : ()));
+    $self->set_results(
+        deep_box => \@out,
+        ($request->[0]->uri->query =~ /[&\?]s=[1-9]/ ? (append => 1) : () )
+    );
 
     # if there are already not enough results to fill the page, fetch another page
     if ($#{$self->widgets->{deep_box}->values}*2 < $self->widgets->{deep_box}->canvasheight && @out) {
@@ -294,15 +309,26 @@ sub fill_deep {
 sub deep {
     my ($self, $call, %opts) = @_;
     print STDERR "[".__PACKAGE__."] deep query: $call\n";
-    my $request = HTTP::Request->new(GET => "http".($self->config->{ssl} ? 's' : '')."://api.duckduckgo.com/$call");
-    POE::Kernel->post('ua', 'request', 'http_response', $request, ['fill_deep']);
+    my $request = HTTP::Request->new(
+        GET => "http".($self->config->{ssl} ? 's' : '') .
+        "://api.duckduckgo.com/$call"
+    );
+    POE::Kernel->post(
+        'ua', 
+        'request', 
+        'http_response', 
+        $request, 
+        ['fill_deep']
+    );
 }
 
 # Autocompletion!
 sub fill_ac {
     my ($self, $request, $response) = @_[OBJECT, ARG0+1, ARG1+1];
     print STDERR "[".__PACKAGE__."] fill_ac callback\n";
-    eval { $self->widgets->{zci_box}->values(from_json($response->[0]->content)->[1]); }; # catch and log, but not report errors
+    eval { # catch and log, but not report errors
+        $self->widgets->{zci_box}->values(from_json($response->[0]->content)->[1]); 
+    }; 
     print STDERR "Error while autocompleting: $@\n" if $@;
     $self->widgets->{zci_box}->show if $self->widgets->{zci_box}->hidden;
     $self->widgets->{zci_box}->title("");
@@ -356,7 +382,11 @@ sub fill_zci {
 
     if ($zci{Results}) {
         for my $zci_box (@{$zci{Results}}) {
-            push @results, { $$zci_box{FirstURL} => "<bold>".$$zci_box{Text}."</bold>" } if $$zci_box{FirstURL} && $$zci_box{Text};
+            push @results, 
+                { 
+                    $$zci_box{FirstURL} => "<bold>".$$zci_box{Text}."</bold>" 
+                } 
+                if $$zci_box{FirstURL} && $$zci_box{Text};
         }
     }
 
@@ -365,7 +395,10 @@ sub fill_zci {
     }
 
     if ($zci{AbstractText} && $zci{AbstractURL}) {
-        push @results, { $zci{AbstractURL} => "<bold>Abstract: </bold>".$zci{AbstractText} };
+        push @results, 
+            { 
+                $zci{AbstractURL} => "<bold>Abstract: </bold>".$zci{AbstractText} 
+            };
     }
 
     if ($zci{Definition} && $zci{DefinitionURL}) {
@@ -380,7 +413,11 @@ sub fill_zci {
                 #    push @results, { $$subtopic{FirstURL} => $$subtopic{Text} } if $$subtopic{FirstURL} && $$subtopic{FirstURL};
                 #}
             } else {
-                push @results, { $$topic{FirstURL} => $$topic{Text} } if $$topic{FirstURL} && $$topic{FirstURL};
+                push @results, 
+                    { 
+                        $$topic{FirstURL} => $$topic{Text} 
+                    } 
+                    if $$topic{FirstURL} && $$topic{FirstURL};
             }
         }
     }
@@ -394,7 +431,10 @@ sub fill_zci {
 sub zci {
     my ($self, $query, %params) = @_;
 
-    my $request = HTTP::Request->new(GET => "http".($self->config->{ssl} ? 's' : '')."://api.duckduckgo.com/");
+    my $request = HTTP::Request->new(
+        GET => "http".($self->config->{ssl} ? 's' : '') .
+        "://api.duckduckgo.com/"
+    );
     $request->uri->query_form(
         q => $query,
         t => "cli",
@@ -434,7 +474,10 @@ sub duck {
     }
 
     # Update search history
-    $self->history([@{$self->history}, $self->widgets->{searchbox}->text]) unless defined $self->history->[-1] && $self->history->[-1] eq $self->widgets->{searchbox}->text;
+    $self->history(
+        [@{$self->history}, $self->widgets->{searchbox}->text]
+    ) 
+        unless defined $self->history->[-1] && $self->history->[-1] eq $self->widgets->{searchbox}->text;
 }
 
 
@@ -477,7 +520,10 @@ sub default_bindings {
         $cui->draw;
     }, "\cl");
 
-    $searchbox->set_binding(sub { $self->duck($searchbox->get) if $searchbox->get; $searchbox->history_index(0) }, KEY_ENTER);
+    $searchbox->set_binding(sub { 
+            $self->duck($searchbox->get) if $searchbox->get;
+            $searchbox->history_index(0) 
+        }, KEY_ENTER);
 
     # History bindings
     $searchbox->set_binding(sub {
@@ -496,7 +542,10 @@ sub default_bindings {
             $this->text($self->history->[$this->history_index]);
         }, KEY_UP);
 
-    $_->set_binding(sub { $searchbox->focus, $searchbox->text("") }, '/') for ($zci_box, $deep_box);
+    $_->set_binding(sub { 
+            $searchbox->focus;
+            $searchbox->text("");
+        }, '/') for ($zci_box, $deep_box);
 
     # Bind space to show a dialog containing the full result
     $deep_box->set_binding(sub {
@@ -528,7 +577,8 @@ sub default_bindings {
     $deep_box->set_mouse_binding(sub {
         my ($this, $event, $x, $y) = @_;
         my $newypos = $this->{-yscrpos} + $y;
-        my $i = (($newypos - ($newypos%2 ? 1 : 0)) + ($this->{-yscrpos} ? $this->{-yscrpos}+0.5 : 0 ) ) /2; print STDERR "clicked: $i\n";
+        my $i = (($newypos - ($newypos%2 ? 1 : 0)) + ($this->{-yscrpos} ? $this->{-yscrpos}+0.5 : 0 ) ) /2; 
+        print STDERR "clicked: $i\n";
         $self->browse($this->values->[$i]) if (@{$this->{-values}} and $newypos >= 0);
     }, BUTTON1_CLICKED);
 
@@ -593,9 +643,15 @@ sub configure_widgets {
                     }
                     if ($self->config->{interface}{$widget}{keys}{$_} =~ /^eval (.+)$/) {
                         my $code = $1;
-                        $self->widgets->{$widget}->set_binding(sub { eval "$code"; $self->ui->error("$@") if $@; }, $key_name);
+                        $self->widgets->{$widget}->set_binding(sub { 
+                                eval "$code"; 
+                                $self->ui->error("$@") if $@; 
+                            }, $key_name);
                     } else {
-                        $self->widgets->{$widget}->set_binding($self->config->{interface}{$widget}{keys}{$_}, $key_name);
+                        $self->widgets->{$widget}->set_binding(
+                            $self->config->{interface}{$widget}{keys}{$_},
+                            $key_name
+                        );
                     }
                 }
             }
