@@ -16,42 +16,42 @@ use App::DuckDuckGo::UI::Config;
 
 
 my $duck = <<"END";
-                             .:/++++/:-.`                                                           
-                             `-/syyyyyyyys+:.                                                       
-                            `+ossosssyyyyyyyys/.                                                    
-                             ``````.:/+oyyyyyyys/-.`                                                
-                               `:+syyyyyyyyyyyyyyyyso/.                                             
-                             `/syyyyyyyyyyyyyyyyyyyyyyy/`                                           
-                            .syyyyyyyyyyyyyyyyyyyyyyyyyys.                                          
-                           -syyyyysosyyyyyyyyyyyyyyys+//+o-                                         
-                          `oyyys::+ossyyyyyyyyyyyyyyssssssy-                                        
-                          :syyy/syyyyyyyyyyyyyyyyyyyyyyyyyys`                                       
-                          +syyyyyyyyyyyyyyyyyyyyyyyyyys+/+yy+                                       
-                          +syyyyyys:.-:syyyyyyyyyyyyyy.   -yy.                                      
-                          :yyyyyyy-    .yyyyyyyyyyyyyy:` `:yy/                                      
-                          `ysyyyyy/`  `/yyyyyyyyyyyyyyysssyyyo       ``..--..`                      
-                           osyyyyyysoosyyyyyyyyyyyyyyyyyyyyyy+``...---::::::::.                     
-                           -ysyyyyyyyyyyyyyyyyyyyyysoooo+++//:-:::::::::::--.`                      
-                           `ssyyyyyyyyyyyyyyyyyso/:::::::::::::::::::---.``                         
-                            /yyyyyyyyyyyyyyyys+::::::::::::::::---..``                              
-                            `ysyyyyyyyyyyyyyy/:::::::.```....```                                    
-                             osyyyyyyyyyyyyyyo:::::::                                               
-                             -ysyyyyyyyyyyyyyyo::::::-.``        ```...----                         
-                              ssyyyyyyyyyyyyyyyy/.---:::----------::::::--`                         
-                              :yyyyyyyyyyyyyyyyy/   ``..--------------.``                           
-                              `ysyyyyyyyyyyyyyyy/          ````````                                 
-                               +syyyyyyyyyyyyyyys                                                   
-                               .ysyyyyyyyyyyyyyyy-                                                  
-                                osyyyyyyyyyyyyyyyo        `.-`                                      
-                                :yyyyooosyyyyyyyyy:    `-/oss+                                      
-                                `ssys://++ossyyssso-..:+oossss`                                     
-                                 /yys://++ooss++oooso//+oossss-                                     
-                                 .ysy://++ooss++oooss//+oossss-                                     
-                                  osy://++ooss++oooss/++oossss.                                     
-                                  -ys///++oossssssssyys--/+oso                                      
-                                   sso//+ossyyyyyyyyyyyo`                                           
-                                   -sysyyyyyyyyyyyyyyyyys`                                          
-                                    :/osyyyyyyyyyyyyyyyyyo                                          
+                             .:/++++/:-.`
+                             `-/syyyyyyyys+:.
+                            `+ossosssyyyyyyyys/.
+                             ``````.:/+oyyyyyyys/-.`
+                               `:+syyyyyyyyyyyyyyyyso/.
+                             `/syyyyyyyyyyyyyyyyyyyyyyy/`
+                            .syyyyyyyyyyyyyyyyyyyyyyyyyys.
+                           -syyyyysosyyyyyyyyyyyyyyys+//+o-
+                          `oyyys::+ossyyyyyyyyyyyyyyssssssy-
+                          :syyy/syyyyyyyyyyyyyyyyyyyyyyyyyys`
+                          +syyyyyyyyyyyyyyyyyyyyyyyyyys+/+yy+
+                          +syyyyyys:.-:syyyyyyyyyyyyyy.   -yy.
+                          :yyyyyyy-    .yyyyyyyyyyyyyy:` `:yy/
+                          `ysyyyyy/`  `/yyyyyyyyyyyyyyysssyyyo       ``..--..`
+                           osyyyyyysoosyyyyyyyyyyyyyyyyyyyyyy+``...---::::::::.
+                           -ysyyyyyyyyyyyyyyyyyyyyysoooo+++//:-:::::::::::--.`
+                           `ssyyyyyyyyyyyyyyyyyso/:::::::::::::::::::---.``
+                            /yyyyyyyyyyyyyyyys+::::::::::::::::---..``
+                            `ysyyyyyyyyyyyyyy/:::::::.```....```
+                             osyyyyyyyyyyyyyyo:::::::
+                             -ysyyyyyyyyyyyyyyo::::::-.``        ```...----
+                              ssyyyyyyyyyyyyyyyy/.---:::----------::::::--`
+                              :yyyyyyyyyyyyyyyyy/   ``..--------------.``
+                              `ysyyyyyyyyyyyyyyy/          ````````
+                               +syyyyyyyyyyyyyyys
+                               .ysyyyyyyyyyyyyyyy-
+                                osyyyyyyyyyyyyyyyo        `.-`
+                                :yyyyooosyyyyyyyyy:    `-/oss+
+                                `ssys://++ossyyssso-..:+oossss`
+                                 /yys://++ooss++oooso//+oossss-
+                                 .ysy://++ooss++oooss//+oossss-
+                                  osy://++ooss++oooss/++oossss.
+                                  -ys///++oossssssssyys--/+oso
+                                   sso//+ossyyyyyyyyyyyo`
+                                   -sysyyyyyyyyyyyyyyyyys`
+                                    :/osyyyyyyyyyyyyyyyyyo
 END
 
 
@@ -70,9 +70,13 @@ has ui => (
             -color_support => 1,
             inline_states => {
                 _start => sub {
-                    $_[HEAP]->{ua} = POE::Component::Client::HTTP->spawn(Alias => 'ua', FollowRedirects => 2, Timeout => 10);
+                    $_[HEAP]->{ua} = POE::Component::Client::HTTP->spawn(
+                        Alias => 'ua',
+                        FollowRedirects => 2,
+                        Timeout => 10
+                    );
                 },
-                http_response => sub { 
+                http_response => sub {
                     my ($method, $seq) = @{$_[ARG0]->[1]};
                     $seq //= -1;
                     if($seq > $self->last_ac_response || $seq == -1) {
@@ -121,7 +125,7 @@ sub _build_result_wrapper {
     $self->window->add(
         'res_wrap', 'Container',
         -vscrollbar => 'right',
-    ) 
+    )
 }
 
 sub _build_widgets {
@@ -195,8 +199,11 @@ sub scale {
 sub set_results {
     my ($self, $box, $results, %opts) = @_;
     # takes the name of a listbox, and an array of hashrefs ({ URL => description })
+    my $widget = $self->widgets->{$box};
+
     my @values;
     my %labels;
+
     for my $result (@$results) {
         for (keys %{$result}) {
             my $desc = $$result{$_};
@@ -215,15 +222,15 @@ sub set_results {
     }
     if (!@values) {
         print STDERR "No values, hiding box $box\n";
-        $self->widgets->{$box}->hide;
+        $widget->hide;
     } else {
-        $self->widgets->{$box}->show;
+        $widget->show;
         if (!defined $opts{append}) {
-            $self->widgets->{$box}->values(\@values);
-            $self->widgets->{$box}->labels(\%labels);
+            $widget->values(\@values);
+            $widget->labels(\%labels);
         } else {
-            $self->widgets->{$box}->insert_at($#{$self->widgets->{$box}->values}+2, \@values);
-            $self->widgets->{$box}->add_labels(\%labels);
+            $widget->insert_at($#{$widget->values}+2, \@values);
+            $widget->add_labels(\%labels);
         }
     }
     $self->scale;
@@ -231,8 +238,9 @@ sub set_results {
 
 sub autocomplete_and_add {
     my ($self, $searchbox, $char) = @_;
-    print STDERR "searchbox input: [$char]\n";
+    print STDERR "searchbox input: [$char] ".ord($char)."\n";
 
+    # Quickly add the char and redraw, so autocomplete doesn't make typing appear to hang.
     $searchbox->add_string($char);
     $searchbox->draw;
 
@@ -243,7 +251,7 @@ sub autocomplete_and_add {
 
 #
 # Semi-logical part
-# 
+#
 
 # Deep results API
 sub fill_deep {
@@ -305,7 +313,13 @@ sub fill_ac {
 
 sub autocomplete {
     my ($self, $text) = @_;
-    my $request = HTTP::Request->new(GET => 'http'.($self->config->{ssl} ? 's' : '').'://duckduckgo.com/ac/?type=list&q=' . uri_encode($text));
+
+    my $request = HTTP::Request->new(
+        GET => 'http'.($self->config->{ssl} ? 's' : '') . # http*s*?
+        '://duckduckgo.com/ac/?type=list&q=' .
+        uri_encode($text)
+    );
+
     POE::Kernel->post(
         'ua',
         'request',
@@ -317,6 +331,8 @@ sub autocomplete {
 
 sub fill_zci {
     my ($self, $request, $response) = @_[OBJECT, ARG1, ARG2];
+    print STDERR "[".__PACKAGE__."] fill_zci callback\n";
+    $self->last_ac_response(~0);
     my %zci;
 
     eval { %zci = %{from_json($response->[0]->content)}; };
@@ -332,13 +348,12 @@ sub fill_zci {
         $self->scale;
         return;
     }
-    
+
     if (defined $zci{Calls} && $zci{Calls}->{deep}) {
         $self->deep($zci{Calls}->{deep});
     }
-    
-    $self->widgets->{zci_box}->title(""); # clear the title, in case there is no heading
-    $self->widgets->{zci_box}->title($zci{Heading}) if $zci{Heading};
+
+    $self->widgets->{zci_box}->title($zci{Heading} || "");
 
     if ($zci{Results}) {
         for my $zci_box (@{$zci{Results}}) {
@@ -373,14 +388,10 @@ sub fill_zci {
 
     # Make sure the ZCI isn't massive
     pop @results while @results > $self->window->height / 4;
-    if (scalar @results) {
-        #$self->widgets->{zci_box}->show;
-        $self->set_results(zci_box => \@results);
-    } else {
-        # FIXME: Hide the ZCI box when it isn't needed
-        $self->widgets->{zci_box}->hide;
-        $self->scale;
-    }
+    print STDERR "BLEEP: ";
+    warn scalar @results;
+    #$self->widgets->{zci_box}->show;
+    $self->set_results(zci_box => \@results);
 }
 
 sub zci {
@@ -402,7 +413,7 @@ sub zci {
         'request',
         'http_response',
         $request,
-        ['fill_zci', length($self->widgets->{searchbox}->text)+10],
+        ['fill_zci', -1],
     );
 }
 
