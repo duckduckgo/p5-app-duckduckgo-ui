@@ -62,6 +62,7 @@ has config => (
 
 has ui => (
     is => 'ro',
+    lazy => 1,
     default => sub {
         my $self = shift;
         Curses::UI::POE->new(
@@ -530,7 +531,7 @@ sub default_bindings {
             my $this = shift;
             # Focus either the ZCI box or the Deep box if this is the last history entry already.
             $zci_box->hidden ? $deep_box->focus : $zci_box->focus, return if $this->history_index >= -1;
-            $this->history_index++;
+            $this->history_index($this->history_index+1);
             $this->text($self->history->[$this->history_index]);
         }, KEY_DOWN);
 
@@ -538,7 +539,7 @@ sub default_bindings {
             my $this = shift;
             print STDERR 0-$this->history_index, ", ", "@{$self->history}";
             return if 0-$this->history_index >= @{$self->history};
-            $this->history_index--;
+            $this->history_index($this->history_index-1);
             $this->text($self->history->[$this->history_index]);
         }, KEY_UP);
 
@@ -671,11 +672,11 @@ sub run {
     # Set the default results, unless there are already results (set outside the package, like from @ARGV)
     $self->set_results(
         zci_box => [
-            {'https://duckduckgo.com/'         => '<bold>Homepage</bold>' } ,
-            {'https://duckduckgo.com/about'    => '<bold>About</bold>'    } ,
-            {'https://duckduckgo.com/goodies' => '<bold>Goodies</bold>'  } ,
-            {'https://duckduckgo.com/feedback' => '<bold>Feedback</bold>' } ,
-            {'https://duckduckgo.com/privacy'  => '<bold>Privacy</bold>'  } ,
+            {'https://duckduckgo.com/'         => '<bold>Homepage</bold>' },
+            {'https://duckduckgo.com/about'    => '<bold>About</bold>'    },
+            {'https://duckduckgo.com/goodies'  => '<bold>Goodies</bold>'  },
+            {'https://duckduckgo.com/feedback' => '<bold>Feedback</bold>' },
+            {'https://duckduckgo.com/privacy'  => '<bold>Privacy</bold>'  },
         ]
     ) unless @{$self->widgets->{zci_box}->values};
 

@@ -8,8 +8,6 @@ after delete_character => sub { shift->draw };
 
 after delete_till_eol => sub { shift->draw };
 
-around new => sub { shift->() };
-
 has history_index => (
     is => 'rw',
     default => sub {0},
